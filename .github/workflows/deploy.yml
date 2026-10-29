@@ -32,15 +32,23 @@ jobs:
           tar -czf release.tar.gz -C .next/standalone .
       - name: Configure SSH
         env:
-          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_KEY_B64: ${{ secrets.DEPLOY_SSH_KEY_B64 }}
           KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
-          test -n "$SSH_KEY" || { echo 'Missing DEPLOY_SSH_KEY'; exit 1; }
+          set -euo pipefail
+          test -n "$SSH_KEY_B64" || { echo 'Missing DEPLOY_SSH_KEY_B64; encode the validated server private key with base64 -w 0'; exit 1; }
           test -n "$KNOWN_HOSTS" || { echo 'Add DEPLOY_KNOWN_HOSTS using the server host public key; see deploy/README.md'; exit 1; }
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          if ! printf '%s' "$SSH_KEY_B64" | tr -d '\r\n ' | base64 --decode > ~/.ssh/id_ed25519; then
+            echo 'DEPLOY_SSH_KEY_B64 is not valid Base64; copy only the encoded value'
+            exit 1
+          fi
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          if ! ssh-keygen -y -P '' -f ~/.ssh/id_ed25519 > /dev/null 2>/dev/null; then
+            echo 'Decoded deployment key is invalid or passphrase-protected. Validate the original unencrypted key on the server before encoding.'
+            exit 1
+          fi
       - name: Upload and activate release
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}

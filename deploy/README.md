@@ -7,7 +7,7 @@ Repository Actions Secrets:
 - DEPLOY_HOST: server IP
 - DEPLOY_USER: SSH user (currently root)
 - DEPLOY_PORT: 22
-- DEPLOY_SSH_KEY: dedicated authorized SSH private key
+- DEPLOY_SSH_KEY_B64: Base64-encoded dedicated authorized SSH private key (no passphrase)
 - DEPLOY_KNOWN_HOSTS: trusted SSH host public key line
 
 For this server on port 22, run in the existing trusted server terminal:
