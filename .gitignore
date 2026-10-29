@@ -1,6 +1,7 @@
 # Only website sources belong in this repository.
 /*
 !/.gitignore
+!/.gitattributes
 !/README.md
 !/app/
 !/lib/

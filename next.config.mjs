@@ -1,2 +1,2 @@
-const nextConfig = { images: { unoptimized: true } };
+const nextConfig = { output: 'standalone', images: { unoptimized: true } };
 export default nextConfig;

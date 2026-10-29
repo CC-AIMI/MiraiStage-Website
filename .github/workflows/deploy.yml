@@ -1,0 +1,57 @@
+name: Deploy Mirai Stage
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: miraistage-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Package standalone server
+        run: |
+          cp -r public .next/standalone/public
+          mkdir -p .next/standalone/.next/static
+          cp -r .next/static/. .next/standalone/.next/static/
+          tar -czf release.tar.gz -C .next/standalone .
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          test -n "$SSH_KEY" || { echo 'Missing DEPLOY_SSH_KEY'; exit 1; }
+          test -n "$KNOWN_HOSTS" || { echo 'Add DEPLOY_KNOWN_HOSTS using the server host public key; see deploy/README.md'; exit 1; }
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+      - name: Upload and activate release
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          port="${DEPLOY_PORT:-22}"
+          target="$DEPLOY_USER@$DEPLOY_HOST"
+          release="$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          remote="/var/www/miraistage/incoming/$release"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -p "$port" "$target" "mkdir -p '$remote'"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=yes -P "$port" release.tar.gz deploy/release.sh deploy/ecosystem.config.cjs "$target:$remote/"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -p "$port" "$target" "bash '$remote/release.sh' '$release'"

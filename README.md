@@ -23,4 +23,4 @@ Configure Nginx as the public reverse proxy and preserve Host, X-Forwarded-Host 
 
 Copy `.env.production.example` to `.env.production` on the server and configure SMTP for the contact form. Never commit credentials.
 
-GitHub automatic deployment is not yet configured. Server SSH credentials and release configuration must be set up before enabling it.
+GitHub Actions builds and deploys on pushes to main or manual dispatch. See [deployment setup](deploy/README.md) for required Secrets, server configuration and rollback behavior.
